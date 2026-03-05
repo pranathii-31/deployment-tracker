@@ -1,0 +1,16 @@
+# Angular
+node_modules/
+dist/
+
+# .NET
+bin/
+obj/
+
+# SQLite database
+*.db
+
+# VSCode
+.vscode/
+
+# Mac
+.DS_Store
