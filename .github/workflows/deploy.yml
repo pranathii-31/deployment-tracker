@@ -1,4 +1,4 @@
-name: Deploy Angular Dashboard to Azure VM
+name: Build and Deploy Deployment Tracker
 
 on:
   push:
@@ -6,30 +6,62 @@ on:
       - main
 
 jobs:
+
   build-and-deploy:
+
     runs-on: ubuntu-latest
 
     steps:
 
+    # Checkout repository
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # -------------------------
+    # Setup Node for Angular
+    # -------------------------
     - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
-    - name: Install dependencies
-      run: |
-        cd frontend/deployment-dashboard
-        npm install
+    # Install Angular dependencies
+    - name: Install Angular dependencies
+      working-directory: frontend/deployment-dashboard
+      run: npm install
 
-    - name: Build Angular app
-      run: |
-        cd frontend/deployment-dashboard
-        npm run build -- --configuration production
+    # Build Angular project
+    - name: Build Angular project
+      working-directory: frontend/deployment-dashboard
+      run: npm run build -- --configuration production
 
-    - name: Copy build to VM
+    # -------------------------
+    # Setup .NET
+    # -------------------------
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    # Restore backend dependencies
+    - name: Restore .NET dependencies
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet restore
+
+    # Build backend
+    - name: Build .NET API
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet build --configuration Release --no-restore
+
+    # Publish backend
+    - name: Publish .NET API
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet publish -c Release -o publish
+
+    # -------------------------
+    # Deploy Angular to IIS
+    # -------------------------
+    - name: Deploy Angular Dashboard to Azure VM
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.VM_HOST }}
@@ -37,3 +69,15 @@ jobs:
         password: ${{ secrets.VM_PASSWORD }}
         source: "frontend/deployment-dashboard/dist/deployment-dashboard/*"
         target: "C:/inetpub/wwwroot/dashboard"
+
+    # -------------------------
+    # Deploy Backend
+    # -------------------------
+    - name: Deploy Backend API
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        source: "backend/DeploymentTrackerAPI/publish/*"
+        target: "C:/deployment-api"
