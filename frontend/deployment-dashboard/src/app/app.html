@@ -1,0 +1,63 @@
+<div class="container">
+
+<h1>Deployment Dashboard</h1>
+
+<h3>Add Deployment</h3>
+
+<form (submit)="addDeployment()">
+
+<input [(ngModel)]="newDeployment.appName"
+       name="appName"
+       placeholder="App Name"
+       required>
+
+<input [(ngModel)]="newDeployment.version"
+       name="version"
+       placeholder="Version"
+       required>
+
+<input [(ngModel)]="newDeployment.environment"
+       name="environment"
+       placeholder="Environment"
+       required>
+
+<input [(ngModel)]="newDeployment.status"
+       name="status"
+       placeholder="Status"
+       required>
+
+<button type="submit">Add</button>
+
+</form>
+<h3>Total Deployments: {{deployments.length}}</h3>
+<table>
+
+<tr>
+<th>App</th>
+<th>Version</th>
+<th>Environment</th>
+<th>Status</th>
+<th>Time</th>
+<th>Action</th>
+</tr>
+
+<tr *ngFor="let d of deployments">
+<td>{{d.appName}}</td>
+<td>{{d.version}}</td>
+<td>{{d.environment}}</td>
+<td [ngClass]="{
+  'success': d.status === 'success',
+  'fail': d.status === 'fail',
+  'running': d.status === 'running'
+}">
+  {{d.status}}
+</td>
+<td>{{d.deploymentTime}}</td>
+<td>
+<button (click)="deleteDeployment(d.id)">Delete</button>
+</td>
+</tr>
+
+</table>
+
+</div>

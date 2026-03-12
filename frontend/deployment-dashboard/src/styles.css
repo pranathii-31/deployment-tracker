@@ -1,0 +1,228 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;800&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg:          #0d0f14;
+  --surface:     #13161e;
+  --surface-2:   #1b1f2b;
+  --border:      #252a38;
+  --accent:      #3d8ef0;
+  --accent-glow: rgba(61, 142, 240, 0.18);
+  --danger:      #e05252;
+  --danger-glow: rgba(224, 82, 82, 0.15);
+  --success:     #3fcf8e;
+  --fail:        #e05252;
+  --text-primary:   #e8ecf4;
+  --text-secondary: #7a8299;
+  --text-muted:     #454d62;
+  --radius:      8px;
+  --transition:  180ms ease;
+}
+
+body {
+  font-family: 'Syne', sans-serif;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 40px 24px 80px;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 70% 0%, rgba(61,142,240,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 10% 100%, rgba(63,207,142,0.04) 0%, transparent 60%);
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: -0.03em;
+  margin-bottom: 48px;
+  background: linear-gradient(135deg, #e8ecf4 30%, #3d8ef0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+h3 {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* ─── Add Form: full width to align with table ───────────────────── */
+form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: nowrap;
+  align-items: center;
+  width: 100%;                        /* matches table width */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 28px;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+
+/* Inputs grow equally to fill all available space before the button */
+input {
+  flex: 1 1 0;
+  min-width: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 13px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ─── Add Button — fixed size, never shrinks ─────────────────────── */
+button[type="submit"] {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 9px 24px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;                     /* never shrinks or grows */
+  transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+
+button[type="submit"]:hover {
+  background: #5aa1f5;
+  box-shadow: 0 0 16px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+button[type="submit"]:active {
+  transform: translateY(0);
+}
+
+/* ─── Table ──────────────────────────────────────────────────────── */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.35);
+}
+
+thead {
+  background: var(--surface-2);
+}
+
+th {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+th:last-child { text-align: center; }
+
+td {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+
+td:last-child { text-align: center; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface-2); }
+
+tr td:nth-child(4) { font-weight: 600; }
+
+tr td:nth-child(5) {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.badge--success {
+  background: rgba(63, 207, 142, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(63, 207, 142, 0.25);
+}
+.badge--fail {
+  background: rgba(224, 82, 82, 0.1);
+  color: var(--fail);
+  border: 1px solid rgba(224, 82, 82, 0.22);
+}
+
+/* ─── Delete Button ──────────────────────────────────────────────── */
+td button {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 6px 14px;
+  border: 1px solid rgba(224, 82, 82, 0.35);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition),
+              box-shadow var(--transition), transform var(--transition);
+}
+
+td button:hover {
+  background: var(--danger-glow);
+  border-color: var(--danger);
+  box-shadow: 0 0 12px var(--danger-glow);
+  transform: translateY(-1px);
+}
+
+td button:active { transform: translateY(0); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
