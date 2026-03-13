@@ -46,7 +46,7 @@ jobs:
     # Restore backend dependencies
     - name: Restore .NET dependencies
       working-directory: backend/DeploymentTrackerAPI
-      run: dotnet restore
+      run: dotnet restore --force
 
     # Build backend
     - name: Build .NET API
@@ -56,7 +56,7 @@ jobs:
     # Publish backend
     - name: Publish .NET API
       working-directory: backend/DeploymentTrackerAPI
-      run: dotnet publish -c Release -o publish
+      run: dotnet publish -c Release -o publish --no-cache
 
     # -------------------------
     # Deploy Angular to IIS
