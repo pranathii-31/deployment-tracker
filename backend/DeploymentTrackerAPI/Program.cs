@@ -22,11 +22,10 @@ var app = builder.Build();
 app.UseCors("AllowAngular");
 
 // Enable Swagger
-if (app.Environment.IsDevelopment())
-{
+
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+
 
 // app.UseHttpsRedirection();
 
