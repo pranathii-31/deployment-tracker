@@ -9,7 +9,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite("Data Source=deployments.db"));
+{
+    var dbPath = Path.Combine(builder.Environment.ContentRootPath, "deployments.db");
+    options.UseSqlite($"Data Source={dbPath}");
+});
 builder.Services.AddScoped<DeploymentService>();
 builder.Services.AddCors(options =>
 {
@@ -19,16 +22,22 @@ builder.Services.AddCors(options =>
                         .AllowAnyMethod());
 });
 var app = builder.Build();
+
 app.UseCors("AllowAngular");
 
-// Enable Swagger
+app.UseSwagger();
 
-    app.UseSwagger();
-    app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "DeploymentTracker API V1");
+    c.RoutePrefix = "swagger";
+});
 
-
-// app.UseHttpsRedirection();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapControllers();
+
+app.MapFallbackToFile("index.html");
 
 app.Run();
