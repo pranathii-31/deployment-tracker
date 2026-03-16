@@ -6,19 +6,17 @@ on:
       - main
 
 jobs:
-
   build-and-deploy:
-
     runs-on: ubuntu-latest
 
     steps:
 
-    # Checkout repository
+    # Checkout repo
     - name: Checkout repository
       uses: actions/checkout@v4
 
     # -------------------------
-    # Setup Node for Angular
+    # Setup Node (Angular)
     # -------------------------
     - name: Setup Node
       uses: actions/setup-node@v4
@@ -30,10 +28,16 @@ jobs:
       working-directory: frontend/deployment-dashboard
       run: npm install
 
-    # Build Angular project
+    # Build Angular
     - name: Build Angular project
       working-directory: frontend/deployment-dashboard
       run: npm run build -- --configuration production
+
+    # Copy Angular build into API wwwroot
+    - name: Copy Angular build into backend
+      run: |
+        rm -rf backend/DeploymentTrackerAPI/wwwroot/*
+        cp -r frontend/deployment-dashboard/dist/deployment-dashboard/browser/* backend/DeploymentTrackerAPI/wwwroot/
 
     # -------------------------
     # Setup .NET
@@ -43,7 +47,7 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # Restore backend dependencies
+    # Restore backend
     - name: Restore .NET dependencies
       working-directory: backend/DeploymentTrackerAPI
       run: dotnet restore --force
@@ -59,21 +63,9 @@ jobs:
       run: dotnet publish -c Release -o publish --no-cache
 
     # -------------------------
-    # Deploy Angular to IIS
+    # Deploy Backend + Dashboard
     # -------------------------
-    - name: Deploy Angular Dashboard to Azure VM
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        source: "frontend/deployment-dashboard/dist/deployment-dashboard/*"
-        target: "C:/inetpub/wwwroot/dashboard"
-
-    # -------------------------
-    # Deploy Backend
-    # -------------------------
-    - name: Deploy Backend API
+    - name: Deploy API and Dashboard
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.VM_HOST }}
