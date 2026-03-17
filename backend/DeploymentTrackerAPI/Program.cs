@@ -35,7 +35,7 @@ app.UseSwaggerUI(c =>
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
-
+app.UseRouting(); 
 app.MapControllers();
 
 app.Run();
