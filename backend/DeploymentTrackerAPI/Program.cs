@@ -17,7 +17,7 @@ builder.Services.AddScoped<DeploymentService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular",
-        policy => policy.WithOrigins("http://localhost:4200")
+        policy => policy.WithOrigins("http://20.224.45.57:81")
                         .AllowAnyHeader()
                         .AllowAnyMethod());
 });

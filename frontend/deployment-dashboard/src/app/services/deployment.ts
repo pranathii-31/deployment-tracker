@@ -6,7 +6,7 @@ import { HttpClient } from '@angular/common/http';
 })
 export class DeploymentService {
 
-  private apiUrl = 'http://localhost:5130/api/deployments';
+  private apiUrl = 'http://20.224.45.57/api/deployments';
 
   constructor(private http: HttpClient) {}
 
