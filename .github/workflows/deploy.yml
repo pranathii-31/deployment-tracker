@@ -11,7 +11,9 @@ jobs:
 
     steps:
 
+    # -------------------------
     # Checkout repo
+    # -------------------------
     - name: Checkout repository
       uses: actions/checkout@v4
 
@@ -32,12 +34,6 @@ jobs:
     - name: Build Angular project
       working-directory: frontend/deployment-dashboard
       run: npm run build -- --configuration production
-
-    # Copy Angular build into API wwwroot
-    - name: Copy Angular build into backend
-      run: |
-        rm -rf backend/DeploymentTrackerAPI/wwwroot/*
-        cp -r frontend/deployment-dashboard/dist/deployment-dashboard/browser/* backend/DeploymentTrackerAPI/wwwroot/
 
     # -------------------------
     # Setup .NET
@@ -63,9 +59,9 @@ jobs:
       run: dotnet publish -c Release -o publish --no-cache
 
     # -------------------------
-    # Deploy Backend + Dashboard
+    # Deploy Backend
     # -------------------------
-    - name: Deploy API and Dashboard
+    - name: Deploy Backend API
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.VM_HOST }}
@@ -73,3 +69,15 @@ jobs:
         password: ${{ secrets.VM_PASSWORD }}
         source: "backend/DeploymentTrackerAPI/publish/*"
         target: "C:/deployment-api"
+
+    # -------------------------
+    # Deploy Angular Dashboard
+    # -------------------------
+    - name: Deploy Angular Dashboard
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        source: "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*"
+        target: "C:/dashboard"
