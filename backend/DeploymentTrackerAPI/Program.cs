@@ -3,7 +3,7 @@ using DeploymentTrackerAPI.Data;
 using DeploymentTrackerAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.WebHost.UseWebRoot("wwwroot");
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
