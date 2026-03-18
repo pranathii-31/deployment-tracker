@@ -59,7 +59,7 @@ jobs:
       run: dotnet publish -c Release -o publish --no-cache
 
     # -------------------------
-    # Deploy Backend
+    # Deploy Backend to VM
     # -------------------------
     - name: Deploy Backend API
       uses: appleboy/scp-action@v0.1.7
@@ -79,5 +79,17 @@ jobs:
         host: ${{ secrets.VM_HOST }}
         username: ${{ secrets.VM_USERNAME }}
         password: ${{ secrets.VM_PASSWORD }}
-        source: "frontend/deployment-dashboard/dist/deployment-dashboard/*"
+        source: "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*"
         target: "C:/dashboard"
+
+    # -------------------------
+    # Restart IIS (VERY IMPORTANT)
+    # -------------------------
+    - name: Restart IIS
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          iisreset
