@@ -79,5 +79,5 @@ jobs:
         host: ${{ secrets.VM_HOST }}
         username: ${{ secrets.VM_USERNAME }}
         password: ${{ secrets.VM_PASSWORD }}
-        source: "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*"
+        source: "frontend/deployment-dashboard/dist/deployment-dashboard/*"
         target: "C:/dashboard"
