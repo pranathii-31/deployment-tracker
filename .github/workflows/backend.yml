@@ -1,0 +1,49 @@
+name: Deploy Backend Only
+
+on:
+  push:
+    branches:
+      - backend-only
+
+jobs:
+  backend-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet restore
+
+    - name: Build
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet build --configuration Release
+
+    - name: Publish
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet publish -c Release -o publish
+
+    - name: Deploy Backend
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        source: "backend/DeploymentTrackerAPI/publish/*"
+        target: "C:/deployment-api"
+
+    - name: Restart IIS
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          iisreset
