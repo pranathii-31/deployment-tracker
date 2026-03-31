@@ -6,70 +6,21 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
 
     # -----------------------------
-    # Checkout Code
+    # Checkout
     # -----------------------------
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    # -----------------------------
-    # Setup .NET
-    # -----------------------------
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '8.0.x'
-
-    # -----------------------------
-    # Restore Backend
-    # -----------------------------
-    - name: Restore .NET dependencies
-      working-directory: backend/DeploymentTrackerAPI
-      run: dotnet restore --force
-
-    # -----------------------------
-    # Build Backend
-    # -----------------------------
-    - name: Build .NET API
-      working-directory: backend/DeploymentTrackerAPI
-      run: dotnet build --configuration Release --no-restore
-
-    # -----------------------------
-    # Publish Backend
-    # -----------------------------
-    - name: Publish .NET API
-      working-directory: backend/DeploymentTrackerAPI
-      run: dotnet publish -c Release -o publish --no-cache
-
-    # -----------------------------
-    # Setup Node (Frontend)
-    # -----------------------------
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-
-    # -----------------------------
-    # Install & Build Angular
-    # -----------------------------
-    - name: Install dependencies
-      working-directory: frontend/deployment-dashboard
-      run: npm install
-
-    - name: Build Angular App
-      working-directory: frontend/deployment-dashboard
-      run: npm run build -- --configuration production
+    - name: Checkout
+      uses: actions/checkout@v4
 
     # =============================
-    # 🔁 BACKUP (ROLLBACK SUPPORT)
+    # 🔁 BACKUP BEFORE DEPLOY
     # =============================
 
-    # Backup Backend
     - name: Backup Backend
       uses: appleboy/ssh-action@v1.0.0
       with:
@@ -80,7 +31,6 @@ jobs:
           if (!(Test-Path "C:\backups")) { New-Item -ItemType Directory -Path "C:\backups" }
           powershell Compress-Archive -Path C:\deployment-api\* -DestinationPath C:\backups\backend_$(Get-Date -Format yyyyMMddHHmmss).zip -Force
 
-    # Backup Frontend
     - name: Backup Frontend
       uses: appleboy/ssh-action@v1.0.0
       with:
@@ -92,21 +42,23 @@ jobs:
           powershell Compress-Archive -Path C:\dashboard\* -DestinationPath C:\backups\frontend_$(Get-Date -Format yyyyMMddHHmmss).zip -Force
 
     # =============================
-    # 🚀 DEPLOYMENT
+    # 🚀 FRONTEND (UNCHANGED)
     # =============================
 
-    # Deploy Backend
-    - name: Deploy Backend API
-      uses: appleboy/scp-action@v0.1.7
+    - name: Setup Node
+      uses: actions/setup-node@v4
       with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        source: "backend/DeploymentTrackerAPI/publish/*"
-        target: "C:/deployment-api"
+        node-version: '20'
 
-    # Deploy Frontend
-    - name: Deploy Angular Dashboard
+    - name: Install Dependencies
+      working-directory: frontend/deployment-dashboard
+      run: npm install
+
+    - name: Build Angular
+      working-directory: frontend/deployment-dashboard
+      run: npm run build -- --configuration production
+
+    - name: Deploy Frontend
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.VM_HOST }}
@@ -115,7 +67,40 @@ jobs:
         source: "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*"
         target: "C:/dashboard"
 
-    # Restart IIS
+    # =============================
+    # 🚀 BACKEND (UNCHANGED)
+    # =============================
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet restore
+
+    - name: Build
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet build --configuration Release
+
+    - name: Publish
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet publish -c Release -o publish
+
+    - name: Deploy Backend
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        source: "backend/DeploymentTrackerAPI/publish/*"
+        target: "C:/deployment-api"
+
+    # =============================
+    # 🔄 RESTART IIS
+    # =============================
+
     - name: Restart IIS
       uses: appleboy/ssh-action@v1.0.0
       with:
