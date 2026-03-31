@@ -28,8 +28,8 @@ jobs:
         username: ${{ secrets.VM_USERNAME }}
         password: ${{ secrets.VM_PASSWORD }}
         script: |
-          if (!(Test-Path "C:\backups")) { New-Item -ItemType Directory -Path "C:\backups" }
-          powershell Compress-Archive -Path C:\deployment-api\* -DestinationPath C:\backups\backend_$(Get-Date -Format yyyyMMddHHmmss).zip -Force
+          mkdir C:\backups
+          powershell -Command "Compress-Archive -Path C:\deployment-api\* -DestinationPath C:\backups\backend.zip -Force"
 
     - name: Backup Frontend
       uses: appleboy/ssh-action@v1.0.0
@@ -38,8 +38,8 @@ jobs:
         username: ${{ secrets.VM_USERNAME }}
         password: ${{ secrets.VM_PASSWORD }}
         script: |
-          if (!(Test-Path "C:\backups")) { New-Item -ItemType Directory -Path "C:\backups" }
-          powershell Compress-Archive -Path C:\dashboard\* -DestinationPath C:\backups\frontend_$(Get-Date -Format yyyyMMddHHmmss).zip -Force
+          mkdir C:\backups
+          powershell -Command "Compress-Archive -Path C:\dashboard\* -DestinationPath C:\backups\frontend.zip -Force"
 
     # =============================
     # 🚀 FRONTEND (UNCHANGED)
