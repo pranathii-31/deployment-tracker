@@ -1,0 +1,45 @@
+name: Deploy Frontend Only
+
+on:
+  push:
+    branches:
+      - frontend-only
+
+jobs:
+  frontend-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Dependencies
+      working-directory: frontend/deployment-dashboard
+      run: npm install
+
+    - name: Build Angular
+      working-directory: frontend/deployment-dashboard
+      run: npm run build -- --configuration production
+
+    - name: Deploy Frontend
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        source: "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*"
+        target: "C:/dashboard"
+
+    - name: Restart IIS
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          iisreset
