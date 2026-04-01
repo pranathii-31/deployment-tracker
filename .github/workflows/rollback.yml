@@ -1,0 +1,51 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: "Choose component to rollback"
+        required: true
+        type: choice
+        options:
+          - frontend
+          - backend
+
+      version:
+        description: "Enter backup file name (example: frontend_20260401_064409.zip)"
+        required: true
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Rollback via SSH
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          $component = "${{ github.event.inputs.component }}"
+          $version = "${{ github.event.inputs.version }}"
+
+          if ($component -eq "frontend") {
+              Write-Host "Rolling back frontend..."
+
+              Remove-Item -Recurse -Force "C:\dashboard\*"
+
+              Expand-Archive -Path "C:\backups\$version" -DestinationPath "C:\dashboard" -Force
+          }
+
+          if ($component -eq "backend") {
+              Write-Host "Rolling back backend..."
+
+              iisreset /stop
+
+              Remove-Item -Recurse -Force "C:\deployment-api\*"
+
+              Expand-Archive -Path "C:\backups\$version" -DestinationPath "C:\deployment-api" -Force
+
+              iisreset /start
+          }
