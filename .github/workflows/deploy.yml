@@ -11,39 +11,60 @@ jobs:
 
     steps:
 
-    # -----------------------------
-    # Checkout
-    # -----------------------------
+    # ---------------------------
+    # Checkout Code
+    # ---------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
-    # =============================
-    # 🔁 BACKUP BEFORE DEPLOY
-    # =============================
 
-    - name: Backup Backend
+    # ===========================
+    # BACKUP (ROLLBACK SYSTEM)
+    # ===========================
+
+    - name: Backup Backend (Versioned)
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.VM_HOST }}
         username: ${{ secrets.VM_USERNAME }}
         password: ${{ secrets.VM_PASSWORD }}
         script: |
-          if not exist C:\backups mkdir C:\backups
-          powershell -Command "Compress-Archive -Path C:\deployment-api\* -DestinationPath C:\backups\backend.zip -Force"
+          powershell -Command "
+          if (!(Test-Path 'C:\backups')) {
+            New-Item -ItemType Directory -Path 'C:\backups'
+          }
 
-    - name: Backup Frontend
+          if (Test-Path 'C:\deployment-api') {
+            \$timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+            \$zipPath = 'C:\backups\backend_' + \$timestamp + '.zip'
+            Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath \$zipPath -Force
+          }
+          "
+
+
+    - name: Backup Frontend (Versioned)
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.VM_HOST }}
         username: ${{ secrets.VM_USERNAME }}
         password: ${{ secrets.VM_PASSWORD }}
         script: |
-          if not exist C:\backups mkdir C:\backups
-          powershell -Command "Compress-Archive -Path C:\dashboard\* -DestinationPath C:\backups\frontend.zip -Force"
+          powershell -Command "
+          if (!(Test-Path 'C:\backups')) {
+            New-Item -ItemType Directory -Path 'C:\backups'
+          }
 
-    # =============================
-    # 🚀 FRONTEND (UNCHANGED)
-    # =============================
+          if (Test-Path 'C:\dashboard') {
+            \$timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+            \$zipPath = 'C:\backups\frontend_' + \$timestamp + '.zip'
+            Compress-Archive -Path 'C:\dashboard\*' -DestinationPath \$zipPath -Force
+          }
+          "
+
+
+    # ===========================
+    # FRONTEND BUILD + DEPLOY
+    # ===========================
 
     - name: Setup Node
       uses: actions/setup-node@v4
@@ -67,9 +88,10 @@ jobs:
         source: "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*"
         target: "C:/dashboard"
 
-    # =============================
-    # 🚀 BACKEND (UNCHANGED)
-    # =============================
+
+    # ===========================
+    # BACKEND BUILD + DEPLOY
+    # ===========================
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -97,9 +119,10 @@ jobs:
         source: "backend/DeploymentTrackerAPI/publish/*"
         target: "C:/deployment-api"
 
-    # =============================
-    # 🔄 RESTART IIS
-    # =============================
+
+    # ===========================
+    # RESTART IIS
+    # ===========================
 
     - name: Restart IIS
       uses: appleboy/ssh-action@v1.0.0
