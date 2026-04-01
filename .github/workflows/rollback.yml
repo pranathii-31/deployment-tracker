@@ -26,25 +26,45 @@ jobs:
           username: ${{ secrets.VM_USERNAME }}
           password: ${{ secrets.VM_PASSWORD }}
           script: |
-            powershell -Command "
-            $component = '${{ github.event.inputs.component }}'
-            $version = '${{ github.event.inputs.version }}'
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {
 
-            Write-Host \"Component: $component\"
-            Write-Host \"Version: $version\"
+              $component = '${{ github.event.inputs.component }}'
+              $version = '${{ github.event.inputs.version }}'
 
-            if ($component -eq 'frontend') {
-              Write-Host 'Rolling back frontend...'
-              Remove-Item -Recurse -Force 'C:\dashboard\*'
-              Expand-Archive -Path \"C:\backups\$version\" -DestinationPath 'C:\dashboard' -Force
-              iisreset
-            }
+              Write-Host '============================='
+              Write-Host \"Component: $component\"
+              Write-Host \"Version: $version\"
+              Write-Host '============================='
 
-            if ($component -eq 'backend') {
-              Write-Host 'Rolling back backend...'
-              iisreset /stop
-              Remove-Item -Recurse -Force 'C:\deployment-api\*'
-              Expand-Archive -Path \"C:\backups\$version\" -DestinationPath 'C:\deployment-api' -Force
-              iisreset /start
-            }
-            "
+              if ($component -eq 'frontend') {
+                Write-Host 'Rolling back frontend...'
+
+                if (Test-Path \"C:\backups\$version\") {
+                  Remove-Item -Recurse -Force \"C:\dashboard\*\"
+                  Expand-Archive -Path \"C:\backups\$version\" -DestinationPath \"C:\dashboard\" -Force
+                  iisreset
+                  Write-Host 'Frontend rollback SUCCESS'
+                }
+                else {
+                  Write-Host 'ERROR: Backup file not found!'
+                  exit 1
+                }
+              }
+
+              if ($component -eq 'backend') {
+                Write-Host 'Rolling back backend...'
+
+                if (Test-Path \"C:\backups\$version\") {
+                  iisreset /stop
+                  Remove-Item -Recurse -Force \"C:\deployment-api\*\"
+                  Expand-Archive -Path \"C:\backups\$version\" -DestinationPath \"C:\deployment-api\" -Force
+                  iisreset /start
+                  Write-Host 'Backend rollback SUCCESS'
+                }
+                else {
+                  Write-Host 'ERROR: Backup file not found!'
+                  exit 1
+                }
+              }
+
+            }"
