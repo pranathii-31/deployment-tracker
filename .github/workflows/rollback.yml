@@ -19,52 +19,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Rollback via SSH
+
+      # 🔹 Step 1: Create PowerShell script on VM
+      - name: Create rollback script on VM
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
           password: ${{ secrets.VM_PASSWORD }}
           script: |
-            powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {
+            echo $component = "${{ github.event.inputs.component }}" > C:\rollback.ps1
+            echo $version = "${{ github.event.inputs.version }}" >> C:\rollback.ps1
 
-              $component = '${{ github.event.inputs.component }}'
-              $version = '${{ github.event.inputs.version }}'
+            echo Write-Host "=====================" >> C:\rollback.ps1
+            echo Write-Host "Component: $component" >> C:\rollback.ps1
+            echo Write-Host "Version: $version" >> C:\rollback.ps1
+            echo Write-Host "=====================" >> C:\rollback.ps1
 
-              Write-Host '============================='
-              Write-Host \"Component: $component\"
-              Write-Host \"Version: $version\"
-              Write-Host '============================='
+            echo if ($component -eq "frontend") { >> C:\rollback.ps1
+            echo   Write-Host "Rolling back frontend..." >> C:\rollback.ps1
+            echo   Remove-Item -Recurse -Force "C:\dashboard\*" >> C:\rollback.ps1
+            echo   Expand-Archive -Path "C:\backups\$version" -DestinationPath "C:\dashboard" -Force >> C:\rollback.ps1
+            echo   iisreset >> C:\rollback.ps1
+            echo   Write-Host "Frontend rollback SUCCESS" >> C:\rollback.ps1
+            echo } >> C:\rollback.ps1
 
-              if ($component -eq 'frontend') {
-                Write-Host 'Rolling back frontend...'
+            echo if ($component -eq "backend") { >> C:\rollback.ps1
+            echo   Write-Host "Rolling back backend..." >> C:\rollback.ps1
+            echo   iisreset /stop >> C:\rollback.ps1
+            echo   Remove-Item -Recurse -Force "C:\deployment-api\*" >> C:\rollback.ps1
+            echo   Expand-Archive -Path "C:\backups\$version" -DestinationPath "C:\deployment-api" -Force >> C:\rollback.ps1
+            echo   iisreset /start >> C:\rollback.ps1
+            echo   Write-Host "Backend rollback SUCCESS" >> C:\rollback.ps1
+            echo } >> C:\rollback.ps1
 
-                if (Test-Path \"C:\backups\$version\") {
-                  Remove-Item -Recurse -Force \"C:\dashboard\*\"
-                  Expand-Archive -Path \"C:\backups\$version\" -DestinationPath \"C:\dashboard\" -Force
-                  iisreset
-                  Write-Host 'Frontend rollback SUCCESS'
-                }
-                else {
-                  Write-Host 'ERROR: Backup file not found!'
-                  exit 1
-                }
-              }
-
-              if ($component -eq 'backend') {
-                Write-Host 'Rolling back backend...'
-
-                if (Test-Path \"C:\backups\$version\") {
-                  iisreset /stop
-                  Remove-Item -Recurse -Force \"C:\deployment-api\*\"
-                  Expand-Archive -Path \"C:\backups\$version\" -DestinationPath \"C:\deployment-api\" -Force
-                  iisreset /start
-                  Write-Host 'Backend rollback SUCCESS'
-                }
-                else {
-                  Write-Host 'ERROR: Backup file not found!'
-                  exit 1
-                }
-              }
-
-            }"
+      # 🔹 Step 2: Execute script
+      - name: Execute rollback script
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}
+          script: |
+            powershell -ExecutionPolicy Bypass -File C:\rollback.ps1
