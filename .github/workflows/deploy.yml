@@ -7,59 +7,42 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows]   
 
     steps:
 
-    # ---------------------------
-    # Checkout Code
-    # ---------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
 
     # ===========================
-    # BACKUP (ROLLBACK SYSTEM)
+    # BACKUP (same logic, no SSH)
     # ===========================
 
     - name: Backup Backend (Versioned)
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: |
-          powershell -Command "
-          if (!(Test-Path 'C:\backups')) {
-            New-Item -ItemType Directory -Path 'C:\backups'
-          }
+      run: |
+        if (!(Test-Path 'C:\backups')) {
+          New-Item -ItemType Directory -Path 'C:\backups'
+        }
 
-          if (Test-Path 'C:\deployment-api') {
-            \$timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-            \$zipPath = 'C:\backups\backend_' + \$timestamp + '.zip'
-            Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath \$zipPath -Force
-          }
-          "
+        if (Test-Path 'C:\deployment-api') {
+          $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+          $zipPath = 'C:\backups\backend_' + $timestamp + '.zip'
+          Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath $zipPath -Force
+        }
 
 
     - name: Backup Frontend (Versioned)
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: |
-          powershell -Command "
-          if (!(Test-Path 'C:\backups')) {
-            New-Item -ItemType Directory -Path 'C:\backups'
-          }
+      run: |
+        if (!(Test-Path 'C:\backups')) {
+          New-Item -ItemType Directory -Path 'C:\backups'
+        }
 
-          if (Test-Path 'C:\dashboard') {
-            \$timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-            \$zipPath = 'C:\backups\frontend_' + \$timestamp + '.zip'
-            Compress-Archive -Path 'C:\dashboard\*' -DestinationPath \$zipPath -Force
-          }
-          "
+        if (Test-Path 'C:\dashboard') {
+          $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+          $zipPath = 'C:\backups\frontend_' + $timestamp + '.zip'
+          Compress-Archive -Path 'C:\dashboard\*' -DestinationPath $zipPath -Force
+        }
 
 
     # ===========================
@@ -80,13 +63,9 @@ jobs:
       run: npm run build -- --configuration production
 
     - name: Deploy Frontend
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        source: "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*"
-        target: "C:/dashboard"
+      run: |
+        Remove-Item -Recurse -Force "C:\dashboard\*"
+        Copy-Item -Recurse -Force "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*" "C:\dashboard"
 
 
     # ===========================
@@ -111,13 +90,11 @@ jobs:
       run: dotnet publish -c Release -o publish
 
     - name: Deploy Backend
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        source: "backend/DeploymentTrackerAPI/publish/*"
-        target: "C:/deployment-api"
+      run: |
+        iisreset /stop
+        Remove-Item -Recurse -Force "C:\deployment-api\*"
+        Copy-Item -Recurse -Force "backend/DeploymentTrackerAPI/publish/*" "C:\deployment-api"
+        iisreset /start
 
 
     # ===========================
@@ -125,10 +102,4 @@ jobs:
     # ===========================
 
     - name: Restart IIS
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: |
-          iisreset
+      run: iisreset
