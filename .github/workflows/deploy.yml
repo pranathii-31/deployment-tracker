@@ -21,6 +21,7 @@ jobs:
 
     - name: Backup Backend (Versioned)
       run: |
+        iisreset /stop
         if (!(Test-Path 'C:\backups')) {
           New-Item -ItemType Directory -Path 'C:\backups'
         }
@@ -30,6 +31,7 @@ jobs:
           $zipPath = 'C:\backups\backend_' + $timestamp + '.zip'
           Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath $zipPath -Force
         }
+        iisreset /start
 
 
     - name: Backup Frontend (Versioned)
