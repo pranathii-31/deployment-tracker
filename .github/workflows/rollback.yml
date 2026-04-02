@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       component:
-        description: "Choose component to rollback"
+        description: "Component to rollback"
         required: true
         type: choice
         options:
           - frontend
           - backend
       version:
-        description: "Enter backup file name (example: frontend_20260401_064409.zip)"
+        description: "Backup file (example: frontend_20260401_064409.zip)"
         required: true
 
 jobs:
@@ -20,71 +20,103 @@ jobs:
 
     steps:
 
-      # ===========================
-      # STEP 1: CREATE PS SCRIPT
-      # ===========================
-      - name: Create rollback script on VM
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USERNAME }}
-          password: ${{ secrets.VM_PASSWORD }}
-          script: |
-            powershell -Command "
-            \$script = @'
-param(
-  [string]\$component,
-  [string]\$version
-)
+    # ===========================
+    # VALIDATION STEP
+    # ===========================
+    - name: Validate Backup Exists
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          powershell -Command "
+          if (!(Test-Path 'C:\backups\${{ github.event.inputs.version }}')) {
+            Write-Error 'Backup file NOT FOUND!'
+            exit 1
+          }
+          Write-Host 'Backup file exists ✔'
+          "
 
-Write-Host '====================='
-Write-Host \"Component: \$component\"
-Write-Host \"Version: \$version\"
-Write-Host '====================='
+    # ===========================
+    # FRONTEND ROLLBACK
+    # ===========================
+    - name: Stop IIS (Frontend)
+      if: ${{ github.event.inputs.component == 'frontend' }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: iisreset /stop
 
-if (\$component -eq 'frontend') {
-  Write-Host 'Rolling back frontend...'
+    - name: Clear Frontend Folder
+      if: ${{ github.event.inputs.component == 'frontend' }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          powershell -Command "Remove-Item -Recurse -Force 'C:\dashboard\*'"
 
-  if (Test-Path 'C:\dashboard') {
-    Remove-Item -Recurse -Force 'C:\dashboard\*'
-  }
+    - name: Restore Frontend Backup
+      if: ${{ github.event.inputs.component == 'frontend' }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          powershell -Command "Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\dashboard' -Force"
 
-  Expand-Archive -Path \"C:\backups\\\$version\" -DestinationPath 'C:\dashboard' -Force
-
-  iisreset
-  Write-Host 'Frontend rollback SUCCESS'
-}
-
-if (\$component -eq 'backend') {
-  Write-Host 'Rolling back backend...'
-
-  iisreset /stop
-
-  if (Test-Path 'C:\deployment-api') {
-    Remove-Item -Recurse -Force 'C:\deployment-api\*'
-  }
-
-  Expand-Archive -Path \"C:\backups\\\$version\" -DestinationPath 'C:\deployment-api' -Force
-
-  iisreset /start
-  Write-Host 'Backend rollback SUCCESS'
-}
-'@
-
-            \$script | Out-File -FilePath C:\rollback.ps1 -Encoding utf8
-            "
+    - name: Start IIS (Frontend)
+      if: ${{ github.event.inputs.component == 'frontend' }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: iisreset /start
 
 
-      # ===========================
-      # STEP 2: EXECUTE SCRIPT
-      # ===========================
-      - name: Execute rollback script
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USERNAME }}
-          password: ${{ secrets.VM_PASSWORD }}
-          script: |
-            powershell -ExecutionPolicy Bypass -File C:\rollback.ps1 `
-              -component "${{ github.event.inputs.component }}" `
-              -version "${{ github.event.inputs.version }}"
+    # ===========================
+    # BACKEND ROLLBACK
+    # ===========================
+    - name: Stop IIS (Backend)
+      if: ${{ github.event.inputs.component == 'backend' }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: iisreset /stop
+
+    - name: Clear Backend Folder
+      if: ${{ github.event.inputs.component == 'backend' }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          powershell -Command "Remove-Item -Recurse -Force 'C:\deployment-api\*'"
+
+    - name: Restore Backend Backup
+      if: ${{ github.event.inputs.component == 'backend' }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: |
+          powershell -Command "Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\deployment-api' -Force"
+
+    - name: Start IIS (Backend)
+      if: ${{ github.event.inputs.component == 'backend' }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        script: iisreset /start
