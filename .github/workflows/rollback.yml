@@ -11,7 +11,7 @@ on:
           - frontend
           - backend
       version:
-        description: "Backup file (example: frontend_20260401_064409.zip)"
+        description: "Backup file name"
         required: true
 
 jobs:
@@ -20,103 +20,31 @@ jobs:
 
     steps:
 
-    # ===========================
-    # VALIDATION STEP
-    # ===========================
-    - name: Validate Backup Exists
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: |
-          powershell -Command "
-          if (!(Test-Path 'C:\backups\${{ github.event.inputs.version }}')) {
-            Write-Error 'Backup file NOT FOUND!'
-            exit 1
-          }
-          Write-Host 'Backup file exists ✔'
-          "
+      - name: Validate Backup
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}
+          script: |
+            powershell -Command "if (!(Test-Path 'C:\backups\${{ github.event.inputs.version }}')) { exit 1 }"
 
-    # ===========================
-    # FRONTEND ROLLBACK
-    # ===========================
-    - name: Stop IIS (Frontend)
-      if: ${{ github.event.inputs.component == 'frontend' }}
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: iisreset /stop
+      - name: Rollback Frontend
+        if: ${{ github.event.inputs.component == 'frontend' }}
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}
+          script: |
+            powershell -Command "Remove-Item -Recurse -Force 'C:\dashboard\*'; Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\dashboard' -Force; iisreset"
 
-    - name: Clear Frontend Folder
-      if: ${{ github.event.inputs.component == 'frontend' }}
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: |
-          powershell -Command "Remove-Item -Recurse -Force 'C:\dashboard\*'"
-
-    - name: Restore Frontend Backup
-      if: ${{ github.event.inputs.component == 'frontend' }}
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: |
-          powershell -Command "Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\dashboard' -Force"
-
-    - name: Start IIS (Frontend)
-      if: ${{ github.event.inputs.component == 'frontend' }}
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: iisreset /start
-
-
-    # ===========================
-    # BACKEND ROLLBACK
-    # ===========================
-    - name: Stop IIS (Backend)
-      if: ${{ github.event.inputs.component == 'backend' }}
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: iisreset /stop
-
-    - name: Clear Backend Folder
-      if: ${{ github.event.inputs.component == 'backend' }}
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: |
-          powershell -Command "Remove-Item -Recurse -Force 'C:\deployment-api\*'"
-
-    - name: Restore Backend Backup
-      if: ${{ github.event.inputs.component == 'backend' }}
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: |
-          powershell -Command "Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\deployment-api' -Force"
-
-    - name: Start IIS (Backend)
-      if: ${{ github.event.inputs.component == 'backend' }}
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USERNAME }}
-        password: ${{ secrets.VM_PASSWORD }}
-        script: iisreset /start
+      - name: Rollback Backend
+        if: ${{ github.event.inputs.component == 'backend' }}
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}
+          script: |
+            powershell -Command "iisreset /stop; Remove-Item -Recurse -Force 'C:\deployment-api\*'; Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\deployment-api' -Force; iisreset /start"
