@@ -3,7 +3,7 @@ using DeploymentTrackerAPI.Data;
 using DeploymentTrackerAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseWebRoot("wwwroot");
+// removed: builder.WebHost.UseWebRoot("wwwroot");
 
 // Services
 builder.Services.AddControllers();
@@ -29,10 +29,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-             
-
-app.UseCors("AllowAngular");      
-app.UseRouting();    
+app.UseCors("AllowAngular");
+app.UseRouting();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -40,8 +38,8 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-app.UseDefaultFiles();
-app.UseStaticFiles();
+// removed: app.UseDefaultFiles();
+// removed: app.UseStaticFiles();
 
 app.MapControllers();
 
