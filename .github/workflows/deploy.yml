@@ -10,13 +10,24 @@ jobs:
     runs-on: self-hosted
 
     steps:
+
+    # ---------------------------
+    # Checkout Code
+    # ---------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
-    # Backup Backend
+
+    # ===========================
+    # BACKUP (SAFE VERSION)
+    # ===========================
+
     - name: Backup Backend
       shell: powershell
       run: |
+        Write-Host "Stopping IIS to release file locks..."
+        net stop W3SVC
+
         if (!(Test-Path "C:\backups")) {
           New-Item -ItemType Directory -Path "C:\backups"
         }
@@ -24,47 +35,91 @@ jobs:
         if (Test-Path "C:\deployment-api") {
           $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
           $zipPath = "C:\backups\backend_$timestamp.zip"
+
           Compress-Archive -Path "C:\deployment-api\*" -DestinationPath $zipPath -Force
         }
 
-    # Backup Frontend
+        Write-Host "Starting IIS..."
+        net start W3SVC
+
+
     - name: Backup Frontend
       shell: powershell
       run: |
+        if (!(Test-Path "C:\backups")) {
+          New-Item -ItemType Directory -Path "C:\backups"
+        }
+
         if (Test-Path "C:\dashboard") {
           $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
           $zipPath = "C:\backups\frontend_$timestamp.zip"
+
           Compress-Archive -Path "C:\dashboard\*" -DestinationPath $zipPath -Force
         }
 
-    # Build Frontend
-    - name: Build Frontend
+
+    # ===========================
+    # FRONTEND BUILD + DEPLOY
+    # ===========================
+
+    - name: Install Node (if not installed)
       shell: powershell
       run: |
-        cd frontend/deployment-dashboard
-        npm install
-        npm run build -- --configuration production
+        if (!(Get-Command node -ErrorAction SilentlyContinue)) {
+          Write-Host "Node not found. Please install Node manually."
+          exit 1
+        }
 
-    # Deploy Frontend
+    - name: Install Dependencies
+      working-directory: frontend/deployment-dashboard
+      run: npm install
+
+    - name: Build Angular
+      working-directory: frontend/deployment-dashboard
+      run: npm run build -- --configuration production
+
     - name: Deploy Frontend
       shell: powershell
       run: |
         Remove-Item -Recurse -Force "C:\dashboard\*" -ErrorAction SilentlyContinue
-        Copy-Item -Recurse -Force "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*" "C:\dashboard"
 
-    # Build Backend
-    - name: Build Backend
+        Copy-Item -Recurse -Force `
+          "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*" `
+          "C:\dashboard"
+
+
+    # ===========================
+    # BACKEND BUILD + DEPLOY
+    # ===========================
+
+    - name: Check .NET
       shell: powershell
       run: |
-        cd backend/DeploymentTrackerAPI
-        dotnet restore
-        dotnet publish -c Release -o publish
+        dotnet --version
 
-    # Deploy Backend
+    - name: Restore
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet restore
+
+    - name: Build
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet build --configuration Release
+
+    - name: Publish
+      working-directory: backend/DeploymentTrackerAPI
+      run: dotnet publish -c Release -o publish
+
     - name: Deploy Backend
       shell: powershell
       run: |
-        iisreset /stop
+        Write-Host "Stopping IIS before backend deploy..."
+        net stop W3SVC
+
         Remove-Item -Recurse -Force "C:\deployment-api\*" -ErrorAction SilentlyContinue
-        Copy-Item -Recurse -Force "backend/DeploymentTrackerAPI/publish/*" "C:\deployment-api"
-        iisreset /start
+
+        Copy-Item -Recurse -Force `
+          "backend/DeploymentTrackerAPI/publish/*" `
+          "C:\deployment-api"
+
+        Write-Host "Starting IIS after deploy..."
+        net start W3SVC
