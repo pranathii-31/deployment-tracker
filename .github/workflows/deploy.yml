@@ -7,101 +7,64 @@ on:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, Windows]   
+    runs-on: self-hosted
 
     steps:
-
     - name: Checkout
       uses: actions/checkout@v4
 
-
-    # ===========================
-    # BACKUP (same logic, no SSH)
-    # ===========================
-
-    - name: Backup Backend (Versioned)
+    # Backup Backend
+    - name: Backup Backend
+      shell: powershell
       run: |
-        iisreset /stop
-        if (!(Test-Path 'C:\backups')) {
-          New-Item -ItemType Directory -Path 'C:\backups'
+        if (!(Test-Path "C:\backups")) {
+          New-Item -ItemType Directory -Path "C:\backups"
         }
 
-        if (Test-Path 'C:\deployment-api') {
-          $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-          $zipPath = 'C:\backups\backend_' + $timestamp + '.zip'
-          Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath $zipPath -Force
+        if (Test-Path "C:\deployment-api") {
+          $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+          $zipPath = "C:\backups\backend_$timestamp.zip"
+          Compress-Archive -Path "C:\deployment-api\*" -DestinationPath $zipPath -Force
         }
-        iisreset /start
 
-
-    - name: Backup Frontend (Versioned)
+    # Backup Frontend
+    - name: Backup Frontend
+      shell: powershell
       run: |
-        if (!(Test-Path 'C:\backups')) {
-          New-Item -ItemType Directory -Path 'C:\backups'
+        if (Test-Path "C:\dashboard") {
+          $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+          $zipPath = "C:\backups\frontend_$timestamp.zip"
+          Compress-Archive -Path "C:\dashboard\*" -DestinationPath $zipPath -Force
         }
 
-        if (Test-Path 'C:\dashboard') {
-          $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-          $zipPath = 'C:\backups\frontend_' + $timestamp + '.zip'
-          Compress-Archive -Path 'C:\dashboard\*' -DestinationPath $zipPath -Force
-        }
+    # Build Frontend
+    - name: Build Frontend
+      shell: powershell
+      run: |
+        cd frontend/deployment-dashboard
+        npm install
+        npm run build -- --configuration production
 
-
-    # ===========================
-    # FRONTEND BUILD + DEPLOY
-    # ===========================
-
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Install Dependencies
-      working-directory: frontend/deployment-dashboard
-      run: npm install
-
-    - name: Build Angular
-      working-directory: frontend/deployment-dashboard
-      run: npm run build -- --configuration production
-
+    # Deploy Frontend
     - name: Deploy Frontend
+      shell: powershell
       run: |
-        Remove-Item -Recurse -Force "C:\dashboard\*"
+        Remove-Item -Recurse -Force "C:\dashboard\*" -ErrorAction SilentlyContinue
         Copy-Item -Recurse -Force "frontend/deployment-dashboard/dist/deployment-dashboard/browser/*" "C:\dashboard"
 
+    # Build Backend
+    - name: Build Backend
+      shell: powershell
+      run: |
+        cd backend/DeploymentTrackerAPI
+        dotnet restore
+        dotnet publish -c Release -o publish
 
-    # ===========================
-    # BACKEND BUILD + DEPLOY
-    # ===========================
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-
-    - name: Restore
-      working-directory: backend/DeploymentTrackerAPI
-      run: dotnet restore
-
-    - name: Build
-      working-directory: backend/DeploymentTrackerAPI
-      run: dotnet build --configuration Release
-
-    - name: Publish
-      working-directory: backend/DeploymentTrackerAPI
-      run: dotnet publish -c Release -o publish
-
+    # Deploy Backend
     - name: Deploy Backend
+      shell: powershell
       run: |
         iisreset /stop
-        Remove-Item -Recurse -Force "C:\deployment-api\*"
+        Remove-Item -Recurse -Force "C:\deployment-api\*" -ErrorAction SilentlyContinue
         Copy-Item -Recurse -Force "backend/DeploymentTrackerAPI/publish/*" "C:\deployment-api"
         iisreset /start
-
-
-    # ===========================
-    # RESTART IIS
-    # ===========================
-
-    - name: Restart IIS
-      run: iisreset
