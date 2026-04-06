@@ -11,90 +11,79 @@ jobs:
 
     steps:
 
-    # ---------------------------
-    # Checkout Code
-    # ---------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
-
     # ===========================
-    # BACKUP (ROLLBACK SYSTEM)
+    # BACKUP
     # ===========================
 
-    - name: Backup Backend (Versioned)
+    - name: Backup Backend
       shell: powershell
       run: |
-        if (!(Test-Path 'C:\backups')) {
-          New-Item -ItemType Directory -Path 'C:\backups'
-        }
+        if (!(Test-Path 'C:\backups')) { New-Item -ItemType Directory -Path 'C:\backups' }
         if (Test-Path 'C:\deployment-api') {
           $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-          $zipPath = 'C:\backups\backend_' + $timestamp + '.zip'
-          Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath $zipPath -Force
+          Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath "C:\backups\backend_$timestamp.zip" -Force
         }
 
-    - name: Backup Frontend (Versioned)
+    - name: Backup Frontend
       shell: powershell
       run: |
-        if (!(Test-Path 'C:\backups')) {
-          New-Item -ItemType Directory -Path 'C:\backups'
-        }
+        if (!(Test-Path 'C:\backups')) { New-Item -ItemType Directory -Path 'C:\backups' }
         if (Test-Path 'C:\dashboard') {
           $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-          $zipPath = 'C:\backups\frontend_' + $timestamp + '.zip'
-          Compress-Archive -Path 'C:\dashboard\*' -DestinationPath $zipPath -Force
+          Compress-Archive -Path 'C:\dashboard\*' -DestinationPath "C:\backups\frontend_$timestamp.zip" -Force
         }
 
-
     # ===========================
-    # FRONTEND BUILD + DEPLOY
+    # FRONTEND
     # ===========================
 
-    - name: Install Dependencies
+    - name: Install Frontend Dependencies
       working-directory: frontend/deployment-dashboard
       shell: powershell
-      run: & "C:\Program Files\nodejs\npm.cmd" install
+      run: npm install
 
-    - name: Build Angular
+    - name: Build Frontend
       working-directory: frontend/deployment-dashboard
       shell: powershell
-      run: & "C:\Program Files\nodejs\npm.cmd" run build -- --configuration production
+      run: npm run build -- --configuration production
 
     - name: Deploy Frontend
       shell: powershell
       run: |
+        if (!(Test-Path 'C:\dashboard')) { New-Item -ItemType Directory -Path 'C:\dashboard' }
         Remove-Item -Recurse -Force 'C:\dashboard\*' -ErrorAction SilentlyContinue
         Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\frontend\deployment-dashboard\dist\deployment-dashboard\browser\*" 'C:\dashboard\'
 
-
     # ===========================
-    # BACKEND BUILD + DEPLOY
+    # BACKEND
     # ===========================
 
-    - name: Restore
+    - name: Restore Backend
       working-directory: backend/DeploymentTrackerAPI
       shell: powershell
-      run: & "C:\Program Files\dotnet\dotnet.exe" restore
+      run: dotnet restore
 
-    - name: Build
+    - name: Build Backend
       working-directory: backend/DeploymentTrackerAPI
       shell: powershell
-      run: & "C:\Program Files\dotnet\dotnet.exe" build --configuration Release
+      run: dotnet build --configuration Release
 
-    - name: Publish
+    - name: Publish Backend
       working-directory: backend/DeploymentTrackerAPI
       shell: powershell
-      run: & "C:\Program Files\dotnet\dotnet.exe" publish -c Release -o publish
+      run: dotnet publish -c Release -o publish
 
     - name: Deploy Backend
       shell: powershell
       run: |
+        if (!(Test-Path 'C:\deployment-api')) { New-Item -ItemType Directory -Path 'C:\deployment-api' }
         iisreset /stop
         Remove-Item -Recurse -Force 'C:\deployment-api\*' -ErrorAction SilentlyContinue
         Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\backend\DeploymentTrackerAPI\publish\*" 'C:\deployment-api\'
         iisreset /start
-
 
     # ===========================
     # RESTART IIS
