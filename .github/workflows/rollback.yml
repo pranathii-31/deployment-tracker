@@ -1,31 +1,43 @@
-name: Rollback
+name: Rollback Deployment
 
 on:
-  workflow_dispatch:  # manual trigger
+  workflow_dispatch:
+    inputs:
+      component:
+        description: "Component to rollback"
+        required: true
+        type: choice
+        options:
+          - frontend
+          - backend
+      version:
+        description: "Backup file name"
+        required: true
 
 jobs:
   rollback:
     runs-on: self-hosted
 
     steps:
-      - name: Rollback deployment
+
+      - name: Validate Backup
+        shell: powershell
         run: |
-          Write-Output "Starting rollback..."
+          if (!(Test-Path 'C:\backups\${{ github.event.inputs.version }}')) { exit 1 }
 
-          $backupRoot = "C:\deploy"
-          $latestBackup = Get-ChildItem $backupRoot -Directory |
-                          Where-Object { $_.Name -like "backup_*" } |
-                          Sort-Object LastWriteTime -Descending |
-                          Select-Object -First 1
+      - name: Rollback Frontend
+        if: ${{ github.event.inputs.component == 'frontend' }}
+        shell: powershell
+        run: |
+          Remove-Item -Recurse -Force 'C:\dashboard\*'
+          Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\dashboard' -Force
+          iisreset
 
-          if ($null -eq $latestBackup) {
-              Write-Error "No backup found!"
-              exit 1
-          }
-
-          Write-Output "Restoring from $($latestBackup.FullName)"
-
-          Remove-Item "C:\deploy\app\*" -Recurse -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path "$($latestBackup.FullName)\*" -Destination "C:\deploy\app" -Recurse -Force
-
-          Write-Output "Rollback completed successfully"
+      - name: Rollback Backend
+        if: ${{ github.event.inputs.component == 'backend' }}
+        shell: powershell
+        run: |
+          iisreset /stop
+          Remove-Item -Recurse -Force 'C:\deployment-api\*'
+          Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\deployment-api' -Force
+          iisreset /start
