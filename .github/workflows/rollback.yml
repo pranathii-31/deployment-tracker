@@ -11,7 +11,7 @@ on:
           - frontend
           - backend
       version:
-        description: "Backup file name"
+        description: "Backup file name (e.g. frontend_20240101_120000.zip)"
         required: true
 
 jobs:
@@ -20,24 +20,27 @@ jobs:
 
     steps:
 
-      - name: Validate Backup
-        shell: powershell
-        run: |
-          if (!(Test-Path 'C:\backups\${{ github.event.inputs.version }}')) { exit 1 }
+    - name: Validate Backup Exists
+      shell: powershell
+      run: |
+        if (!(Test-Path "C:\backups\${{ github.event.inputs.version }}")) {
+          Write-Error "Backup not found: ${{ github.event.inputs.version }}"
+          exit 1
+        }
 
-      - name: Rollback Frontend
-        if: ${{ github.event.inputs.component == 'frontend' }}
-        shell: powershell
-        run: |
-          Remove-Item -Recurse -Force 'C:\dashboard\*'
-          Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\dashboard' -Force
-          iisreset
+    - name: Rollback Frontend
+      if: ${{ github.event.inputs.component == 'frontend' }}
+      shell: powershell
+      run: |
+        Remove-Item -Recurse -Force 'C:\dashboard\*' -ErrorAction SilentlyContinue
+        Expand-Archive -Path "C:\backups\${{ github.event.inputs.version }}" -DestinationPath 'C:\dashboard' -Force
+        iisreset
 
-      - name: Rollback Backend
-        if: ${{ github.event.inputs.component == 'backend' }}
-        shell: powershell
-        run: |
-          iisreset /stop
-          Remove-Item -Recurse -Force 'C:\deployment-api\*'
-          Expand-Archive -Path 'C:\backups\${{ github.event.inputs.version }}' -DestinationPath 'C:\deployment-api' -Force
-          iisreset /start
+    - name: Rollback Backend
+      if: ${{ github.event.inputs.component == 'backend' }}
+      shell: powershell
+      run: |
+        iisreset /stop
+        Remove-Item -Recurse -Force 'C:\deployment-api\*' -ErrorAction SilentlyContinue
+        Expand-Archive -Path "C:\backups\${{ github.event.inputs.version }}" -DestinationPath 'C:\deployment-api' -Force
+        iisreset /start
