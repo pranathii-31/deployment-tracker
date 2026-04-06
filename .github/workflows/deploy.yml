@@ -21,11 +21,13 @@ jobs:
     - name: Backup Backend
       shell: powershell
       run: |
+        iisreset /stop 
         if (!(Test-Path 'C:\backups')) { New-Item -ItemType Directory -Path 'C:\backups' }
         if (Test-Path 'C:\deployment-api') {
           $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
           Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath "C:\backups\backend_$timestamp.zip" -Force
         }
+        iisreset /start
 
     - name: Backup Frontend
       shell: powershell
