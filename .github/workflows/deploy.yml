@@ -1,4 +1,4 @@
-name: Deploy
+name: Build and Deploy Deployment Tracker
 
 on:
   push:
@@ -10,45 +10,96 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-  
-      - name: Setup shell check
-        run: |
-          & "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" echo "PowerShell working"
-
-    
-      - name: Check Node
-        run: |
-          & "C:\Program Files\nodejs\node.exe" -v
-
- 
-      - name: Check .NET
-        run: |
-          & "C:\Program Files\dotnet\dotnet.exe" --version
-
-   
-      - name: Install dependencies
-        run: |
-          & "C:\Program Files\nodejs\npm.cmd" install
-
-      
-      - name: Build project
-        run: |
-          & "C:\Program Files\nodejs\npm.cmd" run build
-
-   
-      - name: Deploy app
-        run: |
-          echo "Deploying app..."
-          # Example:
-          # Copy-Item -Path "dist\*" -Destination "C:\deploy\app" -Recurse -Force
+    # ---------------------------
+    # Checkout Code
+    # ---------------------------
+    - name: Checkout
+      uses: actions/checkout@v4
 
 
-      - name: Backup current deployment
-        run: |
-          $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-          $backupPath = "C:\deploy\backup_$timestamp"
-          New-Item -ItemType Directory -Path $backupPath -Force
-          Copy-Item -Path "C:\deploy\app\*" -Destination $backupPath -Recurse -Force
+    # ===========================
+    # BACKUP (ROLLBACK SYSTEM)
+    # ===========================
+
+    - name: Backup Backend (Versioned)
+      shell: powershell
+      run: |
+        if (!(Test-Path 'C:\backups')) {
+          New-Item -ItemType Directory -Path 'C:\backups'
+        }
+        if (Test-Path 'C:\deployment-api') {
+          $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+          $zipPath = 'C:\backups\backend_' + $timestamp + '.zip'
+          Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath $zipPath -Force
+        }
+
+    - name: Backup Frontend (Versioned)
+      shell: powershell
+      run: |
+        if (!(Test-Path 'C:\backups')) {
+          New-Item -ItemType Directory -Path 'C:\backups'
+        }
+        if (Test-Path 'C:\dashboard') {
+          $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+          $zipPath = 'C:\backups\frontend_' + $timestamp + '.zip'
+          Compress-Archive -Path 'C:\dashboard\*' -DestinationPath $zipPath -Force
+        }
+
+
+    # ===========================
+    # FRONTEND BUILD + DEPLOY
+    # ===========================
+
+    - name: Install Dependencies
+      working-directory: frontend/deployment-dashboard
+      shell: powershell
+      run: & "C:\Program Files\nodejs\npm.cmd" install
+
+    - name: Build Angular
+      working-directory: frontend/deployment-dashboard
+      shell: powershell
+      run: & "C:\Program Files\nodejs\npm.cmd" run build -- --configuration production
+
+    - name: Deploy Frontend
+      shell: powershell
+      run: |
+        Remove-Item -Recurse -Force 'C:\dashboard\*' -ErrorAction SilentlyContinue
+        Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\frontend\deployment-dashboard\dist\deployment-dashboard\browser\*" 'C:\dashboard\'
+
+
+    # ===========================
+    # BACKEND BUILD + DEPLOY
+    # ===========================
+
+    - name: Restore
+      working-directory: backend/DeploymentTrackerAPI
+      shell: powershell
+      run: & "C:\Program Files\dotnet\dotnet.exe" restore
+
+    - name: Build
+      working-directory: backend/DeploymentTrackerAPI
+      shell: powershell
+      run: & "C:\Program Files\dotnet\dotnet.exe" build --configuration Release
+
+    - name: Publish
+      working-directory: backend/DeploymentTrackerAPI
+      shell: powershell
+      run: & "C:\Program Files\dotnet\dotnet.exe" publish -c Release -o publish
+
+    - name: Deploy Backend
+      shell: powershell
+      run: |
+        iisreset /stop
+        Remove-Item -Recurse -Force 'C:\deployment-api\*' -ErrorAction SilentlyContinue
+        Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\backend\DeploymentTrackerAPI\publish\*" 'C:\deployment-api\'
+        iisreset /start
+
+
+    # ===========================
+    # RESTART IIS
+    # ===========================
+
+    - name: Restart IIS
+      shell: powershell
+      run: iisreset
