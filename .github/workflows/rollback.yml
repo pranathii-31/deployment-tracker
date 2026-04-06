@@ -1,42 +1,31 @@
-name: Rollback Deployment
+name: Rollback
 
 on:
-  workflow_dispatch:
-    inputs:
-      component:
-        description: "Component to rollback"
-        required: true
-        type: choice
-        options:
-          - frontend
-          - backend
-      version:
-        description: "Backup file name"
-        required: true
+  workflow_dispatch:  # manual trigger
 
 jobs:
   rollback:
-    runs-on: [self-hosted, Windows]   
-    steps:
+    runs-on: self-hosted
 
-      - name: Validate Backup
+    steps:
+      - name: Rollback deployment
         run: |
-          if (!(Test-Path "C:\backups\${{ github.event.inputs.version }}")) {
-            Write-Error "Backup not found"
-            exit 1
+          Write-Output "Starting rollback..."
+
+          $backupRoot = "C:\deploy"
+          $latestBackup = Get-ChildItem $backupRoot -Directory |
+                          Where-Object { $_.Name -like "backup_*" } |
+                          Sort-Object LastWriteTime -Descending |
+                          Select-Object -First 1
+
+          if ($null -eq $latestBackup) {
+              Write-Error "No backup found!"
+              exit 1
           }
 
-      - name: Rollback Frontend
-        if: ${{ github.event.inputs.component == 'frontend' }}
-        run: |
-          Remove-Item -Recurse -Force "C:\dashboard\*"
-          Expand-Archive -Path "C:\backups\${{ github.event.inputs.version }}" -DestinationPath "C:\dashboard" -Force
-          iisreset
+          Write-Output "Restoring from $($latestBackup.FullName)"
 
-      - name: Rollback Backend
-        if: ${{ github.event.inputs.component == 'backend' }}
-        run: |
-          iisreset /stop
-          Remove-Item -Recurse -Force "C:\deployment-api\*"
-          Expand-Archive -Path "C:\backups\${{ github.event.inputs.version }}" -DestinationPath "C:\deployment-api" -Force
-          iisreset /start
+          Remove-Item "C:\deploy\app\*" -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$($latestBackup.FullName)\*" -Destination "C:\deploy\app" -Recurse -Force
+
+          Write-Output "Rollback completed successfully"
