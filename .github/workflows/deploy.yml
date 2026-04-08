@@ -15,24 +15,32 @@ jobs:
       uses: actions/checkout@v4
 
     # ===========================
-    # BACKUP
+    # BACKUP (FIXED)
     # ===========================
 
     - name: Backup Backend
       shell: powershell
       run: |
-        iisreset /stop 
-        if (!(Test-Path 'C:\backups')) { New-Item -ItemType Directory -Path 'C:\backups' }
+        iisreset /stop
+
+        if (!(Test-Path 'C:\backups')) { 
+          New-Item -ItemType Directory -Path 'C:\backups' 
+        }
+
         if (Test-Path 'C:\deployment-api') {
           $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
           Compress-Archive -Path 'C:\deployment-api\*' -DestinationPath "C:\backups\backend_$timestamp.zip" -Force
         }
+
         iisreset /start
 
     - name: Backup Frontend
       shell: powershell
       run: |
-        if (!(Test-Path 'C:\backups')) { New-Item -ItemType Directory -Path 'C:\backups' }
+        if (!(Test-Path 'C:\backups')) { 
+          New-Item -ItemType Directory -Path 'C:\backups' 
+        }
+
         if (Test-Path 'C:\dashboard') {
           $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
           Compress-Archive -Path 'C:\dashboard\*' -DestinationPath "C:\backups\frontend_$timestamp.zip" -Force
@@ -55,8 +63,12 @@ jobs:
     - name: Deploy Frontend
       shell: powershell
       run: |
-        if (!(Test-Path 'C:\dashboard')) { New-Item -ItemType Directory -Path 'C:\dashboard' }
+        if (!(Test-Path 'C:\dashboard')) { 
+          New-Item -ItemType Directory -Path 'C:\dashboard' 
+        }
+
         Remove-Item -Recurse -Force 'C:\dashboard\*' -ErrorAction SilentlyContinue
+
         Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\frontend\deployment-dashboard\dist\deployment-dashboard\browser\*" 'C:\dashboard\'
 
     # ===========================
@@ -78,17 +90,24 @@ jobs:
       shell: powershell
       run: dotnet publish -c Release -o publish
 
-    - name: Deploy Backend
+    - name: Deploy Backend (SAFE - DB PRESERVED)
       shell: powershell
       run: |
-        if (!(Test-Path 'C:\deployment-api')) { New-Item -ItemType Directory -Path 'C:\deployment-api' }
+        if (!(Test-Path 'C:\deployment-api')) { 
+          New-Item -ItemType Directory -Path 'C:\deployment-api' 
+        }
+
         iisreset /stop
-        Remove-Item -Recurse -Force 'C:\deployment-api\*' -ErrorAction SilentlyContinue
+
+        # DELETE EVERYTHING EXCEPT DATABASE
+        Get-ChildItem 'C:\deployment-api' | Where-Object { $_.Name -ne 'deployments.db' } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
         Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\backend\DeploymentTrackerAPI\publish\*" 'C:\deployment-api\'
+
         iisreset /start
 
     # ===========================
-    # RESTART IIS
+    # FINAL IIS RESTART (OPTIONAL SAFETY)
     # ===========================
 
     - name: Restart IIS
